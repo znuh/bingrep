@@ -41,12 +41,15 @@ int map_file(mf_t * mf, const char *file, off_t ofs, size_t size) {
 	if ((size < 1) || (size > (attr.st_size - ofs)))
 		size = attr.st_size - ofs;
 
-	if ((mf->mem =
-	     mmap(NULL, size, PROT_READ, MAP_SHARED, fd, ofs)) == MAP_FAILED) {
-		close(fd);
-		return -1;
+	if(size > 0) {
+
+		if ((mf->mem =
+			 mmap(NULL, size, PROT_READ, MAP_SHARED, fd, ofs)) == MAP_FAILED) {
+			close(fd);
+			return -1;
+		}
+		//readahead(fd, ofs, size);
 	}
-	//readahead(fd, ofs, size);
 
 	close(fd);
 
