@@ -1,9 +1,11 @@
 #define _GNU_SOURCE
+#define _XOPEN_SOURCE 500 // Required for nftw
 
 #include <inttypes.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <ftw.h>
 #include <assert.h>
 #include "mmap.h"
 
@@ -39,9 +41,15 @@ size_t hexparse(void *d, size_t bufsize, const char *hex) {
 	return dst - dstart;
 }
 
-int scan_file(const char *fname, const void *pat, size_t pat_len) {
+static void *pat = NULL;
+static size_t pat_len = 0;
+
+int scan_file(const char *fpath, const struct stat *sb, int tflag, struct FTW *ftwbuf) {
+	if (tflag != FTW_F && tflag != FTW_SL)
+		return 0;
+
 	mf_t mf;
-	int res = map_file(&mf,fname,0,0);
+	int res = map_file(&mf,fpath,0,0);
 	if(res)
 		return res;
 
@@ -51,7 +59,7 @@ int scan_file(const char *fname, const void *pat, size_t pat_len) {
 		p = memmem(p,left,pat,pat_len);
 		if(!p)
 			break;
-		printf("%s: found @%lx\n", fname, p-mf.mem);
+		printf("%s: found @%lx\n", fpath, p-mf.mem);
 	}
 
 	unmap_file(&mf);
@@ -61,10 +69,12 @@ int scan_file(const char *fname, const void *pat, size_t pat_len) {
 int main(int argc, char **argv) {
 	assert(argc>2);
 	size_t hexlen = strlen(argv[1]);
-	void *pat = alloca(hexlen/2);
-	size_t patlen = hexparse(pat,hexlen/2,argv[1]);
-	assert(patlen == (hexlen/2));
-	int res = scan_file(argv[2], pat, patlen);
-	assert(!res);
+	pat = alloca(hexlen/2);
+	pat_len = hexparse(pat,hexlen/2,argv[1]);
+	assert(pat_len == (hexlen/2));
+	if (nftw(argv[2], scan_file, 20, FTW_PHYS) == -1) {
+		perror("nftw");
+		return 1;
+	}
 	return 0;
 }
