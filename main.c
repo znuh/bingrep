@@ -53,19 +53,14 @@ int scan_file(const char *fpath, const struct stat *sb, int tflag, struct FTW *f
 	if(res)
 		return res;
 
-	if(mf.len < pat_len)
-		goto skip;
-
-	const void *end = mf.mem + mf.len;
-	const void *p = mf.mem;
-	for(size_t left; (left=end-p);p++) {
+	const void *p = mf.mem, *end = mf.mem + mf.len;
+	for(size_t left; (left=end-p) >= pat_len; p++) {
 		p = memmem(p,left,pat,pat_len);
 		if(!p)
 			break;
 		printf("%s: found @%lx\n", fpath, p-mf.mem);
 	}
 
-skip:
 	unmap_file(&mf);
 	return 0;
 }
